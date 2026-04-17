@@ -3,17 +3,18 @@ import ollama
 def trip_planner_agent(destination, days, interests):
 
     prompt = f"""
-    Create a {days}-day travel itinerary for {destination}.
-    Interests: {interests}
+    You are a travel planner that ONLY suggests places within India.
 
-    Rules:
-    - Each day must have different places
-    - Do not repeat places
-    - Return only place names separated by commas
-    - Total places should be {days * 2}
+    If the destination is outside India, reply exactly with:
+    "Currently our travel planner supports destinations within India only."
 
-    Example:
-    Place1, Place2, Place3
+    If the destination is in India:
+    - Suggest tourist places for a {days}-day trip
+    - Return only place names
+    - Separate places with commas
+    - No explanations
+
+    Destination: {destination}
     """
 
     response = ollama.chat(
@@ -21,6 +22,11 @@ def trip_planner_agent(destination, days, interests):
         messages=[{"role": "user", "content": prompt}]
     )
 
-    places = response["message"]["content"].split(",")
+    result = response["message"]["content"]
+
+    if "supports destinations within India only" in result:
+        return result
+
+    places = result.split(",")
 
     return [p.strip() for p in places]

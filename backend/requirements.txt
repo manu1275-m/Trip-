@@ -1,5 +1,9 @@
 fastapi
 uvicorn
 pydantic
+<<<<<<< HEAD
+=======
+requests
+>>>>>>> f157353 (Updated)
 python-dotenv
 python-jose

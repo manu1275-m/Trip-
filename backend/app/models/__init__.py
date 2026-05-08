@@ -1,2 +1,2 @@
-from .trip_model import Trip
-from .user_model import User
+"""Pydantic contracts for API and agent state."""
+

@@ -1,1 +1,2 @@
-# Core module initializer
+"""Core configuration and security helpers."""
+

@@ -23,6 +23,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { API_BASE, apiFetch } from "@/lib/api";
 
 type Step = "login" | "profile" | "trip" | "itinerary" | "transport" | "travelers" | "summary";
+type AuthMode = "login" | "register";
 
 type EmergencyContact = {
   id: string;
@@ -175,8 +176,11 @@ const emptyTravelerForm = {
 
 export default function Home() {
   const [activeStep, setActiveStep] = useState<Step>("login");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState("");
   const [notice, setNotice] = useState("Ready");
@@ -246,7 +250,7 @@ export default function Home() {
   async function requestOtp() {
     setOtp("");
     const response = await run("OTP requested", () =>
-      apiFetch<ApiMessage>("/auth/request-otp", {
+      apiFetch<ApiMessage>("/auth/register/request-otp", {
         method: "POST",
         body: JSON.stringify({ email })
       })
@@ -259,17 +263,40 @@ export default function Home() {
     }
   }
 
-  async function verifyOtp() {
+  async function registerAccount() {
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
     const response = await run("Signed in", () =>
-      apiFetch<{ access_token: string }>("/auth/verify-otp", {
+      apiFetch<{ access_token: string }>("/auth/register/complete", {
         method: "POST",
-        body: JSON.stringify({ email, otp })
+        body: JSON.stringify({ email, otp, password })
       })
     );
     if (response?.access_token) {
       setToken(response.access_token);
       window.localStorage.setItem("travel_companion_token", response.access_token);
       await refreshSavedData(response.access_token);
+      setPassword("");
+      setConfirmPassword("");
+      setActiveStep("profile");
+    }
+  }
+
+  async function loginAccount(event?: FormEvent) {
+    event?.preventDefault();
+    const response = await run("Signed in", () =>
+      apiFetch<{ access_token: string }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password })
+      })
+    );
+    if (response?.access_token) {
+      setToken(response.access_token);
+      window.localStorage.setItem("travel_companion_token", response.access_token);
+      await refreshSavedData(response.access_token);
+      setPassword("");
       setActiveStep("profile");
     }
   }
@@ -395,20 +422,30 @@ export default function Home() {
     return visit ? `${visit.start} to ${visit.end}` : "";
   }
 
+  const activeStepIndex = steps.findIndex((step) => step.id === activeStep);
+
   return (
-    <main className="flow-shell">
+    <main className={loading ? "flow-shell is-loading" : "flow-shell"}>
       <header className="flow-header">
         <div className="brand">
           <Route aria-hidden="true" />
           <div>
             <strong>Travel Companion</strong>
-            <span>Step {steps.findIndex((step) => step.id === activeStep) + 1} of {steps.length}</span>
+            <span>Step {activeStepIndex + 1} of {steps.length}</span>
           </div>
         </div>
+        <ol className="step-strip" aria-label="Trip planning steps">
+          {steps.map((step, index) => (
+            <li className={index <= activeStepIndex ? "done" : ""} key={step.id}>
+              <span>{index + 1}</span>
+              <b>{step.label}</b>
+            </li>
+          ))}
+        </ol>
         <div className="flow-progress" aria-label="Travel flow progress">
           <span>{steps.find((step) => step.id === activeStep)?.label}</span>
           <div>
-            <i style={{ width: `${((steps.findIndex((step) => step.id === activeStep) + 1) / steps.length) * 100}%` }} />
+            <i style={{ width: `${((activeStepIndex + 1) / steps.length) * 100}%` }} />
           </div>
         </div>
       </header>
@@ -419,7 +456,7 @@ export default function Home() {
             <p>{API_BASE}</p>
             <h1>{steps.find((step) => step.id === activeStep)?.label}</h1>
           </div>
-          <div className="status-line">
+          <div className="status-line" aria-live="polite">
             {loading ? <Loader2 className="spin" aria-hidden="true" /> : <Shield aria-hidden="true" />}
             <span>{loading || notice}</span>
           </div>
@@ -433,20 +470,61 @@ export default function Home() {
         ) : null}
 
         {activeStep === "login" ? (
-          <ModuleCard icon={<Shield aria-hidden="true" />} title="Login using email auth">
-            <label>
-              Email
-              <input required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
-            </label>
-            <div className="button-row">
-              <button type="button" onClick={requestOtp} title="Send OTP">
-                <Send aria-hidden="true" />
+          <ModuleCard icon={<Shield aria-hidden="true" />} title={authMode === "register" ? "Register account" : "Login to your account"}>
+            <div className="choice-row">
+              <button type="button" className={authMode === "login" ? "choice selected" : "choice"} onClick={() => setAuthMode("login")}>
+                Login
               </button>
-              <input value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="OTP from email" />
-              <button type="button" onClick={verifyOtp} title="Verify OTP">
-                <CheckCircle2 aria-hidden="true" />
+              <button type="button" className={authMode === "register" ? "choice selected" : "choice"} onClick={() => setAuthMode("register")}>
+                Register
               </button>
             </div>
+
+            {authMode === "login" ? (
+              <form className="module-form" onSubmit={loginAccount}>
+                <label>
+                  Email
+                  <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+                </label>
+                <label>
+                  Password
+                  <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Your password" />
+                </label>
+                <button className="wide primary" type="submit" disabled={Boolean(loading)}>
+                  <CheckCircle2 aria-hidden="true" />
+                  Login
+                </button>
+              </form>
+            ) : (
+              <div className="module-form">
+                <label>
+                  Email
+                  <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+                </label>
+                <button type="button" onClick={requestOtp} disabled={!email || Boolean(loading)} title="Send OTP">
+                  <Send aria-hidden="true" />
+                  Send registration OTP
+                </button>
+                <label>
+                  OTP
+                  <input required value={otp} onChange={(event) => setOtp(event.target.value)} placeholder="OTP from email" />
+                </label>
+                <div className="grid-two">
+                  <label>
+                    Password
+                    <input required type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" />
+                  </label>
+                  <label>
+                    Confirm password
+                    <input required type="password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repeat password" />
+                  </label>
+                </div>
+                <button className="wide primary" type="button" onClick={registerAccount} disabled={!email || !otp || !password || Boolean(loading)}>
+                  <CheckCircle2 aria-hidden="true" />
+                  Register and continue
+                </button>
+              </div>
+            )}
             <StatusPill tone={authReady ? "good" : "warn"} label={authReady ? "Signed in" : "Auth needed"} />
           </ModuleCard>
         ) : null}

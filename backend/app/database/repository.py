@@ -74,6 +74,19 @@ class TravelRepository:
         merged = {**user, **profile, "email": email.lower(), "updated_at": timestamp}
         return await self._upsert_by_id("users", email.lower(), merged)
 
+    async def set_user_password(self, email: str, password_hash: str, password_salt: str) -> dict[str, Any]:
+        user = await self.ensure_user(email)
+        timestamp = now_utc()
+        merged = {
+            **user,
+            "email": email.lower(),
+            "password_hash": password_hash,
+            "password_salt": password_salt,
+            "registered_at": user.get("registered_at") or timestamp,
+            "updated_at": timestamp,
+        }
+        return await self._upsert_by_id("users", email.lower(), merged)
+
     async def store_otp(self, email: str, otp_hash: str, salt: str, expires_at: datetime) -> dict[str, Any]:
         return await self._insert(
             "otp_codes",
@@ -168,4 +181,3 @@ class TravelRepository:
 
 
 repo = TravelRepository()
-

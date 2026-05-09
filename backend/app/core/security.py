@@ -94,3 +94,17 @@ def otp_matches(candidate: str, salt: str, expected_hash: str) -> bool:
 def new_salt() -> str:
     return secrets.token_urlsafe(24)
 
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    salt = salt or secrets.token_urlsafe(24)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 210_000)
+    return base64.urlsafe_b64encode(digest).decode("utf-8"), salt
+
+
+def password_matches(candidate: str, salt: str, expected_hash: str) -> bool:
+    candidate_hash, _ = hash_password(candidate, salt)
+    return hmac.compare_digest(candidate_hash, expected_hash)

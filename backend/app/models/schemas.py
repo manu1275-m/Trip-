@@ -214,6 +214,8 @@ class TripPlanResponse(BaseModel):
     return_journey: ReturnJourneyPlan
     booking_readiness: dict[str, Any]
     created_at: datetime
+    raw_plan: str | None = None
+    ai_explanation: str | None = None
 
 
 class BookingInitiationRequest(BaseModel):

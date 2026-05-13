@@ -28,8 +28,43 @@ def _fallback_weather(location: str, travel_date: date | None = None) -> dict[st
 
 
 async def weather_context(location: str, travel_date: date | None = None) -> dict[str, Any]:
+    api_key = settings.openweather_api_key or ""
+    
+    # Check if the user provided a Groq key instead of OpenWeather
+    if api_key.startswith("gsk_"):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                month = travel_month_label(travel_date or datetime.now(timezone.utc).date())
+                prompt = f"Generate a highly realistic JSON weather forecast for {location} in {month}. Return strictly JSON with exactly these keys: 'condition' (string, e.g. 'Scattered Showers'), 'temperature_c' (integer), 'rain_probability' (float 0.0 to 1.0), 'severe' (boolean). No markdown, no other text."
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": "llama3-8b-8192",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"}
+                    }
+                )
+                resp.raise_for_status()
+                content = resp.json()["choices"][0]["message"]["content"]
+                import json
+                data = json.loads(content)
+                return {
+                    "condition": data.get("condition", "Clear"),
+                    "temperature_c": data.get("temperature_c", 28),
+                    "rain_probability": data.get("rain_probability", 0.0),
+                    "severe": data.get("severe", False),
+                    "source": "groq_ai_agent",
+                    "summary": f"AI estimated weather for {location}",
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                }
+        except Exception as e:
+            print("Groq Weather Gen Error:", e)
+            return _fallback_weather(location, travel_date)
+
     point = await geocode(location)
-    if not point or not settings.openweather_api_key or "garbage" in settings.openweather_api_key.lower():
+    if not point or not api_key or "garbage" in api_key.lower():
         return _fallback_weather(location, travel_date)
 
     try:
@@ -39,7 +74,7 @@ async def weather_context(location: str, travel_date: date | None = None) -> dic
                 params={
                     "lat": point["lat"],
                     "lon": point["lon"],
-                    "appid": settings.openweather_api_key,
+                    "appid": api_key,
                     "units": "metric",
                 },
             )

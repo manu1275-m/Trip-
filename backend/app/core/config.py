@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     openrouteservice_api_key: str = ""
     osm_user_agent: str = "AgenticAITravelCompanion/1.0"
 
+    fluxbase_api_key: str = ""
+    fluxbase_project_id: str = ""
+    fluxbase_base_url: str = "https://fluxbase.vercel.app"
+
     model_config = SettingsConfigDict(
         env_file=("../.env", ".env"),
         env_file_encoding="utf-8",

@@ -78,15 +78,27 @@ async def send_otp(data: EmailRequest):
 async def _validate_otp(email: str, otp: str) -> dict[str, Any]:
     stored_otp = await repo.latest_otp(email)
 
-    expires_at = stored_otp.get("expires_at") if stored_otp else None
+    if not stored_otp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP record not found. Please request a new OTP.")
+
+    if stored_otp.get("used"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP has already been used")
+
+    expires_at = stored_otp.get("expires_at")
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except ValueError:
+            pass
+            
     if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-    if not stored_otp or stored_otp.get("used") or not expires_at or expires_at < now_utc():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP is invalid or expired")
+    if not expires_at or (isinstance(expires_at, datetime) and expires_at < now_utc()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP has expired. Please request a new one.")
 
     if not otp_matches(otp, stored_otp["salt"], stored_otp["otp_hash"]):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP code entered.")
 
     return stored_otp
 

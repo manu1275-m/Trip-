@@ -14,7 +14,6 @@ export default function TransportSelection({ params }: { params: { id: string } 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkoutTransport, setCheckoutTransport] = useState<string | null>(null);
-  const [bookingJustCompleted, setBookingJustCompleted] = useState(false);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -190,12 +189,10 @@ export default function TransportSelection({ params }: { params: { id: string } 
             initialEmail={trip?.request?.booking_email || trip?.user_email}
             initialTravelers={trip?.request?.travelers?.length ? trip.request.travelers : undefined}
             basePrice={checkoutTransport === "Flight" ? flightPrice : trainPrice}
-            onSuccess={() => setBookingJustCompleted(true)}
-            onClose={async () => {
-              if (bookingJustCompleted) {
-                setBookingJustCompleted(false);
-                await fetchTrip();
-              }
+            onSuccess={async () => {
+              await fetchTrip();
+            }}
+            onClose={() => {
               setCheckoutTransport(null);
             }}
           />

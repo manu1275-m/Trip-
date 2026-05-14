@@ -14,7 +14,6 @@ export default function HotelsSelection({ params }: { params: { id: string } }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkoutStay, setCheckoutStay] = useState<string | null>(null);
-  const [bookingJustCompleted, setBookingJustCompleted] = useState(false);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -111,12 +110,10 @@ export default function HotelsSelection({ params }: { params: { id: string } }) 
                   initialEmail={trip?.request?.booking_email || trip?.user_email}
                   initialTravelers={trip?.request?.travelers}
                   basePrice={hotelPricePerNight(checkoutStay, trip?.request?.destination || "")}
-                  onSuccess={() => setBookingJustCompleted(true)}
-                  onClose={async () => {
-                    if (bookingJustCompleted) {
-                      setBookingJustCompleted(false);
-                      await fetchTrip();
-                    }
+                  onSuccess={async () => {
+                    await fetchTrip();
+                  }}
+                  onClose={() => {
                     setCheckoutStay(null);
                   }}
                 />

@@ -155,10 +155,10 @@ function PlaceCard({ place, destination }: { place: Place; destination: string }
 
 // ─── StayCard ───────────────────────────────────────────────────────────────
 function StayCard({
-  name, destination, isBooked, booking, tripId,
+  name, destination, isBooked, booking, tripId, isCompleted
 }: {
   name: string; destination: string; isBooked: boolean;
-  booking: any; tripId: string;
+  booking: any; tripId: string; isCompleted?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const info = getHotelInfo(name, destination);
@@ -217,6 +217,10 @@ function StayCard({
           {isBooked ? (
             <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
               <p className="text-green-400 font-bold text-sm">✅ Booked · PNR: {booking?.pnr}</p>
+            </div>
+          ) : isCompleted ? (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+              <p className="text-gray-400 font-medium text-sm">Booking closed (Trip completed)</p>
             </div>
           ) : (
             <Link
@@ -339,6 +343,20 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
     b.type === 'Flight' || b.type === 'Train' || b.type === 'Transport'
   );
 
+  const isTripCompleted = (t: any) => {
+    if (!t?.request?.travel_date || !t?.request?.number_of_days) return false;
+    try {
+      const startDate = new Date(t.request.travel_date);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + parseInt(t.request.number_of_days));
+      if (isNaN(endDate.getTime())) return false;
+      return new Date() > endDate;
+    } catch {
+      return false;
+    }
+  };
+  const isCompleted = isTripCompleted(trip);
+
   const scrollToDay = (idx: number) => {
     setActiveDay(idx);
     dayRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -357,7 +375,11 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
               🤖 AI Generated
             </span>
-            {transportBooked ? (
+            {isCompleted ? (
+              <span className="text-xs font-bold bg-gray-500/20 text-gray-400 px-3 py-1.5 rounded-full border border-gray-500/30">
+                🏁 Trip Completed
+              </span>
+            ) : transportBooked ? (
               <span className="text-xs font-bold bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-full border border-blue-500/30">
                 ✈️ Transport Booked · {transportBooked.pnr}
               </span>
@@ -574,6 +596,7 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                   isBooked={!!getBooking(uniqueStays[0])}
                   booking={getBooking(uniqueStays[0])}
                   tripId={params.id}
+                  isCompleted={isCompleted}
                 />
                 <p className="text-center text-xs text-gray-500 mt-2">Same hotel throughout your trip</p>
               </div>
@@ -613,6 +636,7 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                           isBooked={!!getBooking(stay)}
                           booking={getBooking(stay)}
                           tripId={params.id}
+                          isCompleted={isCompleted}
                         />
                       </div>
                     </div>
@@ -763,7 +787,7 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
       })()}
 
       {/* Floating Transport CTA */}
-      {!hasTransportBooking && (
+      {!hasTransportBooking && !isCompleted && (
         <>
           <div className="fixed bottom-10 right-10 z-50 hidden md:block">
             <Link
@@ -784,6 +808,28 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
             </Link>
           </div>
         </>
+      )}
+
+      {isCompleted && (
+        <div className="max-w-7xl mx-auto px-4 mt-12 mb-12">
+          <div className="bg-white/[0.02] border border-amber-500/20 rounded-3xl p-8 text-center relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+            <h3 className="text-3xl font-bold text-white mb-3 relative z-10">How was your trip?</h3>
+            <p className="text-gray-400 mb-8 relative z-10 text-lg">Rate your AI-planned itinerary experience.</p>
+            <div className="flex justify-center gap-4 relative z-10">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button 
+                  key={star} 
+                  className="text-5xl text-gray-600 hover:text-amber-400 hover:scale-125 transition-all focus:text-amber-500 active:scale-95"
+                  onClick={() => alert('Thank you for your feedback!')}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

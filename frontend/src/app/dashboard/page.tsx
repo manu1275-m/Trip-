@@ -17,6 +17,20 @@ export default function Dashboard() {
   const router = useRouter();
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'ongoing' | 'completed'>('ongoing');
+
+  const isTripCompleted = (trip: any) => {
+    if (!trip.request?.travel_date || !trip.request?.number_of_days) return false;
+    try {
+      const startDate = new Date(trip.request.travel_date);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + parseInt(trip.request.number_of_days));
+      if (isNaN(endDate.getTime())) return false;
+      return new Date() > endDate;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -40,6 +54,8 @@ export default function Dashboard() {
   }, [router]);
 
   const getBookingCount = (trip: any) => Object.keys(trip.bookings || {}).length;
+
+  const filteredTrips = trips.filter(t => activeTab === 'completed' ? isTripCompleted(t) : !isTripCompleted(t));
 
   return (
     <div className="flex flex-col min-h-screen bg-[#09090b]">
@@ -92,11 +108,24 @@ export default function Dashboard() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                Your Trips
+                <span className={`w-2 h-2 ${activeTab === 'ongoing' ? 'bg-green-400 animate-pulse' : 'bg-gray-500'} rounded-full`} />
+                {activeTab === 'ongoing' ? 'Ongoing Trips' : 'Completed Trips'}
               </h2>
-              {!loading && trips.length > 0 && (
-                <span className="text-xs text-gray-500">{trips.length} trip{trips.length !== 1 ? 's' : ''}</span>
+              {!loading && (
+                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                  <button 
+                    onClick={() => setActiveTab('ongoing')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'ongoing' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    Ongoing
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('completed')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'completed' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    Completed
+                  </button>
+                </div>
               )}
             </div>
 
@@ -110,9 +139,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : trips.length > 0 ? (
+            ) : filteredTrips.length > 0 ? (
               <div className="space-y-4">
-                {trips.map((trip: any, idx: number) => {
+                {filteredTrips.map((trip: any, idx: number) => {
                   const tripId = trip.id || trip.trip_id;
                   const bookingCount = getBookingCount(trip);
                   return (
@@ -169,16 +198,17 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-amber-500/20 bg-amber-500/5 p-12 text-center">
-                <div className="text-5xl mb-4">🌏</div>
-                <h3 className="text-xl font-bold text-white mb-2">No trips yet</h3>
-                <p className="text-gray-400 text-sm mb-6">Let 13 AI agents craft the perfect Indian adventure for you.</p>
-                <Link
-                  href="/trips/new"
-                  className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 text-sm"
-                >
-                  Plan Your First Trip →
-                </Link>
+              <div className="text-center py-20 bg-white/[0.02] border border-white/5 rounded-3xl">
+                <div className="text-4xl mb-4 opacity-50">🏕️</div>
+                <h3 className="text-xl font-bold text-white mb-2">No {activeTab} trips found</h3>
+                <p className="text-gray-400 text-sm">
+                  {activeTab === 'ongoing' ? "You don't have any active travel plans." : "You haven't completed any trips yet."}
+                </p>
+                {activeTab === 'ongoing' && (
+                  <Link href="/trips/new" className="inline-block mt-6 px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all">
+                    Plan a New Trip
+                  </Link>
+                )}
               </div>
             )}
           </div>

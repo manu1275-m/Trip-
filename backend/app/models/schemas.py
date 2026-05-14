@@ -62,10 +62,10 @@ class EmergencyContactPublic(EmergencyContactInput):
 class TravelerInput(BaseModel):
     name: str = Field(min_length=2)
     email: EmailStr | None = None
-    phone: str = Field(min_length=8)
+    phone: str | None = None
     gender: str
     age: int = Field(ge=1, le=120)
-    government_id: GovernmentID
+    government_id: GovernmentID | None = None
 
 
 class TravelerPublic(BaseModel):
@@ -104,6 +104,8 @@ class Place(BaseModel):
     map_url: str
     estimated_visit_minutes: int
     notes: str
+    restaurant_name: str | None = None
+    restaurant_map_link: str | None = None
 
 
 class ScheduleBlock(BaseModel):

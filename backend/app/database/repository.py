@@ -47,8 +47,14 @@ class TravelRepository:
 
     async def _find_one(self, collection: str, query: dict[str, Any]) -> dict[str, Any] | None:
         await self.initialize_schema()
-        sql = f"SELECT data FROM {collection}"
-        rows = await fluxbase_client.execute_sql(sql)
+        
+        if "id" in query:
+            sql = f"SELECT data FROM {collection} WHERE id = ?"
+            rows = await fluxbase_client.execute_sql(sql, [query["id"]])
+        else:
+            sql = f"SELECT data FROM {collection}"
+            rows = await fluxbase_client.execute_sql(sql)
+            
         for row in rows:
             data = json.loads(row.get("data")) if isinstance(row.get("data"), str) else row.get("data")
             if data:
@@ -152,16 +158,34 @@ class TravelRepository:
 
     async def latest_otp(self, email: str) -> dict[str, Any] | None:
         records = await self._find_many("app_otp_codes", {"email": email.lower()})
-        records.sort(
-            key=lambda item: datetime.fromisoformat(item.get("created_at")) if isinstance(item.get("created_at"), str) else item.get("created_at", datetime.min.replace(tzinfo=timezone.utc)),
-            reverse=True
-        )
+        
+        def safe_date(item):
+            val = item.get("created_at")
+            if not val:
+                return datetime.min.replace(tzinfo=timezone.utc)
+            if isinstance(val, str):
+                try:
+                    if val.endswith('Z'):
+                        val = val[:-1] + '+00:00'
+                    return datetime.fromisoformat(val)
+                except ValueError:
+                    return datetime.min.replace(tzinfo=timezone.utc)
+            return val
+
+        records.sort(key=safe_date, reverse=True)
         return records[0] if records else None
 
     async def mark_otp_used(self, otp_id: str) -> None:
         await self.initialize_schema()
-        sql = "UPDATE app_otp_codes SET data = JSON_SET(data, '$.used', true) WHERE id = ?"
-        await fluxbase_client.execute_sql(sql, [otp_id])
+        # Fetch the record first
+        sql = "SELECT data FROM app_otp_codes WHERE id = ?"
+        rows = await fluxbase_client.execute_sql(sql, [otp_id])
+        if rows:
+            row = rows[0]
+            data = json.loads(row.get("data")) if isinstance(row.get("data"), str) else row.get("data")
+            if data:
+                data["used"] = True
+                await self._upsert_by_id("app_otp_codes", otp_id, data)
 
     async def add_emergency_contact(self, email: str, contact: dict[str, Any]) -> dict[str, Any]:
         return await self._insert(
@@ -201,7 +225,7 @@ class TravelRepository:
         return payload.copy()
 
     async def get_trip(self, email: str, trip_id: str) -> dict[str, Any] | None:
-        return await self._find_one("agentic_trips", {"user_email": email.lower(), "trip_id": trip_id})
+        return await self._find_one("agentic_trips", {"user_email": email.lower(), "id": trip_id})
 
     async def list_trips(self, email: str) -> list[dict[str, Any]]:
         trips = await self._find_many("agentic_trips", {"user_email": email.lower()})

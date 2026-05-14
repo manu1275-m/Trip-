@@ -87,6 +87,8 @@ async def _validate_otp(email: str, otp: str) -> dict[str, Any]:
     expires_at = stored_otp.get("expires_at")
     if isinstance(expires_at, str):
         try:
+            if expires_at.endswith('Z'):
+                expires_at = expires_at[:-1] + '+00:00'
             expires_at = datetime.fromisoformat(expires_at)
         except ValueError:
             pass

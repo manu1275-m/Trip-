@@ -63,6 +63,7 @@ async def plan_trip(payload: TripInitRequest, email: str = Depends(get_current_u
     return response
 
 
+@router.get("/")
 @router.get("/history")
 async def trip_history(email: str = Depends(get_current_user_email)) -> list[dict]:
     print(f"DEBUG: Fetching trip history for {email}")

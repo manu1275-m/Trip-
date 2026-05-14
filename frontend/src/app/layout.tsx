@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Agentic AI Travel Planner",
-  description: "Your intelligent real-time travel assistant for destinations across India.",
+  title: "Yatra AI — Your AI Travel Companion for India",
+  description: "13 AI agents build, book, and monitor your perfect India trip in seconds.",
 };
 
 export default function RootLayout({
@@ -14,9 +15,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/30">
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {children}
-        </main>
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+        {children}
       </body>
     </html>
   );

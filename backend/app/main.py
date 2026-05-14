@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, bookings, mobility, safety, transport, trips, users, images
+from app.api import auth, bookings, mobility, safety, transport, trips, users, images, traffic
 from app.core.config import settings
 app = FastAPI(
     title=settings.app_name,
@@ -29,6 +29,7 @@ app.include_router(mobility.router, prefix="/api")
 app.include_router(safety.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 app.include_router(images.router, prefix="/api")
+app.include_router(traffic.router, prefix="/api")
 
 
 @app.get("/")
@@ -41,11 +42,15 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "database_mode": "fluxbase"}
     
 @app.get("/api/db-test")
-async def db_test() -> dict[str, Any]:
+async def db_test(email: str = "") -> dict[str, Any]:
     from app.database.repository import repo
     
     results = {}
     try:
+        if email:
+            trips = await repo.list_trips(email)
+            return {"trips_count": len(trips), "latest_trip_ids": [t.get("trip_id") for t in trips[:5]]}
+        
         user1 = await repo.get_user("manu74reddy@gmail.com")
         user2 = await repo.get_user("manu123reddy747@gmail.com")
         

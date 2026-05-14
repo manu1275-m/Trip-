@@ -26,16 +26,35 @@ class FluxbaseClient:
             "params": params or []
         }
         
+        import asyncio
+        max_retries = 3
+        
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=self.headers, json=payload, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-            
-            if not data.get("success"):
-                error_msg = data.get('error')
-                logger.error(f"Fluxbase query failed: {error_msg}")
-                raise RuntimeError(f"Database error: {error_msg}")
-                
-            return data.get("result", {}).get("rows", [])
+            for attempt in range(max_retries):
+                try:
+                    response = await client.post(url, headers=self.headers, json=payload, timeout=30.0)
+                    
+                    if response.status_code in [500, 502, 503, 504]:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+                            
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    if not data.get("success"):
+                        error_msg = data.get('error')
+                        logger.error(f"Fluxbase query failed: {error_msg}")
+                        raise RuntimeError(f"Database error: {error_msg}")
+                        
+                    return data.get("result", {}).get("rows", [])
+                    
+                except httpx.HTTPError as e:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+                    logger.error(f"Fluxbase connection failed after {max_retries} attempts: {str(e)}")
+                    raise e
+            return []
 
 fluxbase_client = FluxbaseClient()

@@ -102,7 +102,8 @@ async def list_emergency_contacts(email: str = Depends(get_current_user_email)) 
 @router.post("/travelers", response_model=TravelerPublic)
 async def add_traveler(payload: TravelerInput, email: str = Depends(get_current_user_email)) -> TravelerPublic:
     data = payload.model_dump()
-    data["government_id"] = _encrypted_government_id(data["government_id"])
+    if data.get("government_id"):
+        data["government_id"] = _encrypted_government_id(data["government_id"])
     traveler = await repo.add_traveler(email, data)
     return _traveler_public(traveler)
 

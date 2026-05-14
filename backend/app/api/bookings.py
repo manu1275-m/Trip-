@@ -59,45 +59,100 @@ async def confirm_mock_booking(payload: MockBookingRequest, email: str = Depends
     future_date = (datetime.date.today() + datetime.timedelta(days=14)).strftime("%B %d, %Y")
     
     date_html = ""
-    if payload.booking_type.lower() in ["flight", "train", "transport"]:
+    icon = "✈️"
+    if payload.booking_type.lower() in ["flight", "transport"]:
+        icon = "✈️ Flight"
         date_html = f"""
-        <p style="margin: 5px 0; color: #475569;"><strong>Departure Date:</strong> {future_date}</p>
-        <p style="margin: 5px 0; color: #475569;"><strong>Departure Time:</strong> 10:30 AM (Local Time)</p>
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Departure Date</strong><br>{future_date}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Departure Time</strong><br>10:30 AM</td>
+        </tr>
+        """
+    elif payload.booking_type.lower() == "train":
+        icon = "🚆 Train"
+        date_html = f"""
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Departure Date</strong><br>{future_date}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Departure Time</strong><br>10:30 AM</td>
+        </tr>
         """
     elif payload.booking_type.lower() == "hotel" or payload.booking_type.lower() == "stay":
+        icon = "🏨 Hotel"
         checkout_date = (datetime.date.today() + datetime.timedelta(days=17)).strftime("%B %d, %Y")
         date_html = f"""
-        <p style="margin: 5px 0; color: #475569;"><strong>Check-in Date:</strong> {future_date}</p>
-        <p style="margin: 5px 0; color: #475569;"><strong>Check-out Date:</strong> {checkout_date}</p>
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Check-in</strong><br>{future_date} (2:00 PM)</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>Check-out</strong><br>{checkout_date} (11:00 AM)</td>
+        </tr>
         """
-    
+
     html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-        <div style="background: #2563eb; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">🎟️ Booking Confirmed!</h1>
-            <p style="margin: 5px 0 0 0; opacity: 0.9;">Powered by Razorpay & Agentic AI</p>
-        </div>
-        <div style="padding: 30px;">
-            <p style="font-size: 16px; color: #334155;">Hello,</p>
-            <p style="font-size: 16px; color: #334155;">Your <strong>{payload.booking_type}</strong> booking for <strong>{payload.item_name}</strong> has been successfully confirmed. The payment of Rs {payload.total_price} via Razorpay was successful.</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 40px 20px;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- Header -->
+            <tr>
+                <td style="background: linear-gradient(135deg, #2563eb, #4f46e5); padding: 40px 30px; text-align: center; color: #ffffff;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">{icon.split(' ')[0]}</div>
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Booking Confirmed</h1>
+                    <p style="margin: 10px 0 0 0; font-size: 15px; opacity: 0.9; font-weight: 500;">Roamio AI Travel Planner</p>
+                </td>
+            </tr>
             
-            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 15px; margin: 20px 0;">
-                <h2 style="margin: 0 0 10px 0; font-size: 18px; color: #0f172a;">Ticket Details</h2>
-                <p style="margin: 5px 0; color: #475569;"><strong>Booking ID (PNR):</strong> {pnr}</p>
-                {date_html}
-                <p style="margin: 5px 0; color: #475569;"><strong>Total Amount Paid:</strong> Rs {payload.total_price}</p>
-                
-                <h3 style="margin: 15px 0 10px 0; font-size: 16px; color: #0f172a;">Travelers Details:</h3>
-                <ul style="margin: 0; padding-left: 20px; color: #475569;">
-                    {''.join([f"<li>{t.name} (Age: {t.age}, {t.gender})</li>" for t in payload.travelers])}
-                </ul>
-            </div>
-            
-            <p style="font-size: 14px; color: #64748b; text-align: center; margin-top: 30px;">
-                * This e-ticket serves as your valid confirmed digital ticket for travel/stay. Please present this at the counter.
-            </p>
-        </div>
-    </div>
+            <!-- Body -->
+            <tr>
+                <td style="padding: 40px 30px;">
+                    <p style="margin: 0 0 25px 0; font-size: 16px; color: #334155; line-height: 1.6;">
+                        Hello!<br><br>
+                        Your <strong>{payload.booking_type}</strong> reservation for <strong>{payload.item_name}</strong> has been successfully secured.
+                    </p>
+
+                    <!-- Ticket Card -->
+                    <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 25px; background-color: #f8fafc; margin-bottom: 30px;">
+                        <h2 style="margin: 0 0 20px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">E-Ticket Voucher</h2>
+                        
+                        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 15px; color: #0f172a;">
+                            <tr>
+                                <td colspan="2" style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                                    <strong style="color: #64748b; font-size: 13px; text-transform: uppercase;">Booking Reference (PNR)</strong><br>
+                                    <span style="font-size: 20px; font-weight: 700; font-family: monospace; color: #2563eb;">{pnr}</span>
+                                </td>
+                            </tr>
+                            {date_html}
+                            <tr>
+                                <td colspan="2" style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                                    <strong style="color: #64748b; font-size: 13px; text-transform: uppercase;">Payment Details</strong><br>
+                                    <strong>Amount Paid:</strong> Rs {payload.total_price:,.2f}<br>
+                                    <span style="font-size: 13px; color: #16a34a;">✓ Paid securely via Razorpay</span>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <h3 style="margin: 20px 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b;">Travelers</h3>
+                        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 14px; color: #334155;">
+                            {''.join([f'<tr><td style="padding: 8px 10px; background: #ffffff; border-radius: 6px; margin-bottom: 4px; display: block; border: 1px solid #e2e8f0;"><strong>{t.name}</strong> • Age {t.age} • {t.gender}</td></tr>' for t in payload.travelers])}
+                        </table>
+                    </div>
+                    
+                    <!-- Footer Info -->
+                    <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 25px;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={pnr}" alt="QR Code" style="width: 100px; height: 100px; margin-bottom: 15px; opacity: 0.8;" />
+                        <p style="margin: 0; font-size: 13px; color: #64748b;">
+                            Please present this digital e-ticket at the counter along with a valid Government ID.<br>
+                            Need help? Reply to this email.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+            <!-- Bottom Accent -->
+            <tr><td style="height: 8px; background: #2563eb;"></td></tr>
+        </table>
+    </body>
+    </html>
     """
     
     try:
@@ -107,16 +162,52 @@ async def confirm_mock_booking(payload: MockBookingRequest, email: str = Depends
             print(f"DEBUG: Found trip {payload.trip_id} for booking {payload.item_name}")
             if "bookings" not in trip:
                 trip["bookings"] = {}
-            # Use item_name or a normalized key to track booking
-            trip["bookings"][payload.item_name] = {
+            # Try to match payload.item_name against hotels in the plan for better key mapping
+            booking_key = payload.item_name
+            try:
+                if payload.booking_type == "Hotel" and "raw_plan" in trip:
+                    import json, re
+                    plan = trip["raw_plan"]
+                    if isinstance(plan, str):
+                        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', plan)
+                        plan = json.loads(match.group(1)) if match else json.loads(plan)
+                    
+                    # Extract all stays from plan
+                    stays = []
+                    for day in plan.values():
+                        if isinstance(day, dict) and day.get("stay"):
+                            stays.append(day["stay"])
+                    
+                    # Find best match
+                    for s in stays:
+                        if payload.item_name.lower().strip() in s.lower().strip() or s.lower().strip() in payload.item_name.lower().strip():
+                            booking_key = s
+                            print(f"DEBUG: Matched {payload.item_name} to plan stay: {s}")
+                            break
+            except Exception as e:
+                print(f"DEBUG: Match logic error: {e}")
+
+            trip["bookings"][booking_key] = {
                 "pnr": pnr,
                 "type": payload.booking_type,
+                "item_name": payload.item_name,
                 "price": payload.total_price,
                 "status": "confirmed",
                 "confirmed_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
+            
+            # Save travelers and booking email to the trip request so they are persistent for other bookings in this trip
+            if "request" not in trip:
+                trip["request"] = {}
+            
+            if not trip["request"].get("travelers") or len(trip["request"]["travelers"]) == 0:
+                trip["request"]["travelers"] = [t.model_dump() for t in payload.travelers]
+            
+            # Always save/update the primary booking email for the trip
+            trip["request"]["booking_email"] = payload.email
+                
             await repo.save_trip(email, trip)
-            print(f"DEBUG: Successfully saved booking for {payload.item_name}")
+            print(f"DEBUG: Successfully saved booking, travelers, and email for {payload.item_name}")
         else:
             print(f"DEBUG: Trip {payload.trip_id} NOT found for user {email}")
     except Exception as e:
@@ -136,3 +227,58 @@ async def confirm_mock_booking(payload: MockBookingRequest, email: str = Depends
         
     return {"status": "success", "pnr": pnr, "message": "Booking confirmed and email sent"}
 
+
+from app.core.security import generate_otp, make_otp_hash, new_salt, now_utc, otp_matches
+from datetime import timedelta
+from fastapi import HTTPException
+
+class EmailOTPRequest(BaseModel):
+    email: str
+
+class EmailOTPVerify(BaseModel):
+    email: str
+    otp: str
+
+@router.post("/send-email-otp")
+async def send_email_otp(data: EmailOTPRequest):
+    from app.services.email_service import send_otp_email
+    otp = generate_otp()
+    
+    email_status = await send_otp_email(data.email, otp)
+    if email_status.get("status") != "sent":
+        raise HTTPException(status_code=502, detail="Failed to send OTP email")
+        
+    salt = new_salt()
+    from app.database.repository import repo
+    await repo.store_otp(data.email, make_otp_hash(otp, salt), salt, now_utc() + timedelta(minutes=10))
+    return {"message": "OTP sent via Email"}
+
+@router.post("/verify-email-otp")
+async def verify_email_otp(data: EmailOTPVerify):
+    from app.database.repository import repo
+    stored_otp = await repo.latest_otp(data.email)
+    if not stored_otp:
+        raise HTTPException(status_code=400, detail="OTP record not found")
+    if stored_otp.get("used"):
+        raise HTTPException(status_code=400, detail="OTP already used")
+    
+    from datetime import datetime, timezone
+    expires_at = stored_otp.get("expires_at")
+    if isinstance(expires_at, str):
+        try:
+            if expires_at.endswith('Z'):
+                expires_at = expires_at[:-1] + '+00:00'
+            expires_at = datetime.fromisoformat(expires_at)
+        except ValueError:
+            pass
+    if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+    if not expires_at or (isinstance(expires_at, datetime) and expires_at < now_utc()):
+        raise HTTPException(status_code=400, detail="OTP expired")
+        
+    if not otp_matches(data.otp, stored_otp["salt"], stored_otp["otp_hash"]):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    await repo.mark_otp_used(stored_otp["id"])
+    return {"message": "Email verified successfully"}

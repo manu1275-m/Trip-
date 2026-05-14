@@ -185,12 +185,6 @@ export default function Dashboard() {
                           >
                             🗺️ Itinerary
                           </Link>
-                          <Link
-                            href={`/trips/${tripId}/live`}
-                            className="flex items-center gap-1.5 bg-green-500/15 hover:bg-green-500/25 text-green-400 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border border-green-500/20"
-                          >
-                            ⚡ Live
-                          </Link>
                         </div>
                       </div>
                     </div>

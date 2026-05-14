@@ -388,6 +388,11 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                 🚀 Book Transport
               </Link>
             )}
+            {!isCompleted && (
+              <Link href={`/trips/${params.id}/live`} className="text-xs font-bold bg-green-500/15 hover:bg-green-500/25 text-green-400 px-3 py-1.5 rounded-full border border-green-500/20 transition-colors flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Live Updates (Weather & Traffic)
+              </Link>
+            )}
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 tracking-tight">
             Your Journey

@@ -368,51 +368,6 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* ── Row 2: AI Agent cards ───────────────────────────────────────── */}
-        {snapshot ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`rounded-2xl border p-5 ${snapshot.traffic?.congestion_level === "high" ? "border-red-500/30 bg-red-500/5" : "border-white/8 bg-white/[0.02]"}`}>
-              <p className="text-sm font-bold text-white mb-3 flex items-center gap-2"><span>🤖</span> AI Traffic Agent</p>
-              <p className={`text-xl font-black capitalize ${snapshot.traffic?.congestion_level === "high" ? "text-red-400" : snapshot.traffic?.congestion_level === "moderate" ? "text-yellow-400" : "text-green-400"}`}>
-                {snapshot.traffic?.congestion_level || "Normal"}
-              </p>
-              <p className="text-gray-500 text-sm mt-1">AI delay est: {snapshot.traffic?.delay_minutes || 0} mins</p>
-            </div>
-            <div className={`rounded-2xl border p-5 ${snapshot.safety_alerts?.length > 0 ? "border-orange-500/30 bg-orange-500/5" : "border-white/8 bg-white/[0.02]"}`}>
-              <p className="text-sm font-bold text-white mb-3 flex items-center gap-2"><span>🛡️</span> Safety Agent</p>
-              {snapshot.safety_alerts?.length > 0 ? (
-                <ul className="space-y-1.5">{snapshot.safety_alerts.map((a: string, i: number) => <li key={i} className="text-orange-300 text-sm flex items-start gap-1.5"><span>⚠️</span>{a}</li>)}</ul>
-              ) : <p className="text-green-400 font-bold">✅ All Clear</p>}
-            </div>
-            <div className={`rounded-2xl border p-5 ${snapshot.replan_required ? "border-red-500/40 bg-red-500/8" : "border-green-500/20 bg-green-500/5"}`}>
-              <p className="text-sm font-bold text-white mb-3 flex items-center gap-2"><span>🤖</span> Master Agent</p>
-              <p className={`text-sm leading-relaxed ${snapshot.replan_required ? "text-red-300" : "text-green-300"}`}>
-                {snapshot.recommended_action || "Proceed as planned. All conditions favorable."}
-              </p>
-              {snapshot.replan_required && (
-                <button onClick={async () => {
-                  try {
-                    const { default: ax } = await import("axios");
-                    await ax.post(`http://127.0.0.1:8000/api/trips/${params.id}/replan`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
-                    router.push(`/trips/${params.id}/plan`);
-                  } catch { alert("Replan failed."); }
-                }} className="mt-3 bg-red-500 hover:bg-red-400 active:scale-[0.97] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">
-                  🔄 Trigger Replan
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1,2,3].map(i => (
-              <div key={i} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 animate-pulse">
-                <div className="h-4 bg-white/10 rounded-full w-1/2 mb-3" />
-                <div className="h-8 bg-white/10 rounded-full w-3/4 mb-2" />
-                <div className="h-4 bg-white/5 rounded-full w-1/2" />
-              </div>
-            ))}
-          </div>
-        )}
       </main>
     </div>
   );

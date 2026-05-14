@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import EmergencySOS from "./EmergencySOS";
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -109,6 +110,7 @@ export default function Navigation() {
           </div>
         </div>
       )}
+      <EmergencySOS />
     </nav>
   );
 }

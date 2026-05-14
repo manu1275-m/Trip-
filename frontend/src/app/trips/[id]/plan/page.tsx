@@ -493,6 +493,26 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                 🏨 Book Hotels
               </Link>
 
+              {/* Safety & Emergency */}
+              <div className="glass-panel p-4 border-red-500/10 bg-red-500/5">
+                <p className="text-xs font-bold uppercase tracking-widest text-red-400 mb-2">Safety & Emergency</p>
+                {trip?.request?.emergency_contact ? (
+                  <div className="space-y-2">
+                    <p className="text-white font-bold text-sm">{trip.request.emergency_contact.name}</p>
+                    <p className="text-gray-400 text-[10px]">{trip.request.emergency_contact.relation} · {trip.request.emergency_contact.phone}</p>
+                    <a href={`tel:${trip.request.emergency_contact.phone}`} className="block w-full text-center bg-red-600/20 hover:bg-red-600/30 text-red-400 py-2 rounded-xl text-xs font-bold border border-red-500/20 transition-all">
+                      Call Emergency Contact
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-[10px]">No emergency contact set.</p>
+                )}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <a href="tel:100" className="bg-white/5 py-2 rounded-xl text-center text-[10px] font-bold text-gray-400 hover:text-white transition-all">Police (100)</a>
+                  <a href="tel:102" className="bg-white/5 py-2 rounded-xl text-center text-[10px] font-bold text-gray-400 hover:text-white transition-all">Amb (102)</a>
+                </div>
+              </div>
+
               {/* AI explanation */}
               {trip?.ai_explanation && (
                 <div className="glass-panel p-4">

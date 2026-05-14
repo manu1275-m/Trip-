@@ -30,6 +30,9 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
   const [traffic, setTraffic] = useState<any>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [trafficLoading, setTrafficLoading] = useState(true);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [trafficOrigin, setTrafficOrigin] = useState<string>("");
+  const [trafficDest, setTrafficDest] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState("");
   const [status, setStatus] = useState("Connecting…");
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -73,15 +76,58 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
   }, []);
 
   useEffect(() => {
+    if (trip) {
+      let locs = new Set<string>();
+      if (trip.request?.current_location) locs.add(trip.request.current_location);
+      if (trip.request?.destination) locs.add(trip.request.destination);
+      
+      let parsedPlan: any = null;
+      try {
+        if (typeof trip.raw_plan === "object") parsedPlan = trip.raw_plan;
+        else if (trip.raw_plan) {
+          const match = trip.raw_plan.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          parsedPlan = JSON.parse(match ? match[1] : trip.raw_plan);
+        }
+      } catch {}
+      
+      if (parsedPlan) {
+        Object.keys(parsedPlan).forEach(k => {
+          if (/day/i.test(k)) {
+            if (parsedPlan[k].stay) locs.add(parsedPlan[k].stay);
+            if (parsedPlan[k].places) {
+              parsedPlan[k].places.forEach((p: any) => locs.add(p.name));
+            }
+          }
+        });
+      }
+      const locArray = Array.from(locs);
+      setLocations(locArray);
+      if (locArray.length > 0 && !trafficOrigin) setTrafficOrigin(locArray[0]);
+      if (locArray.length > 1 && !trafficDest) setTrafficDest(locArray[1]);
+      else if (locArray.length > 0 && !trafficDest) setTrafficDest(locArray[0]);
+    }
+  }, [trip]);
+
+  // Fetch weather
+  useEffect(() => {
     if (!trip?.request?.destination) return;
     fetchWeather(trip.request.destination);
-    fetchTraffic(trip.request.current_location || "", trip.request.destination);
     const interval = setInterval(() => {
       fetchWeather(trip.request.destination);
-      fetchTraffic(trip.request.current_location || "", trip.request.destination);
     }, 5 * 60 * 1000); // refresh every 5 min
     return () => clearInterval(interval);
-  }, [trip, fetchWeather, fetchTraffic]);
+  }, [trip, fetchWeather]);
+
+  // Fetch traffic
+  useEffect(() => {
+    if (trafficOrigin && trafficDest) {
+      fetchTraffic(trafficOrigin, trafficDest);
+      const interval = setInterval(() => {
+        fetchTraffic(trafficOrigin, trafficDest);
+      }, 5 * 60 * 1000); // refresh every 5 min
+      return () => clearInterval(interval);
+    }
+  }, [trafficOrigin, trafficDest, fetchTraffic]);
 
   // SSE for AI agent snapshot
   useEffect(() => {
@@ -139,7 +185,7 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
             </div>
             {lastUpdated && <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">↻ {lastUpdated}</span>}
             <button
-              onClick={() => { fetchWeather(destination); fetchTraffic(origin, destination); }}
+              onClick={() => { fetchWeather(destination); if (trafficOrigin && trafficDest) fetchTraffic(trafficOrigin, trafficDest); }}
               className="text-xs text-gray-500 hover:text-gray-300 px-2 py-0.5 rounded-full border border-white/10 hover:border-white/20 transition-all"
             >
               Refresh All
@@ -254,7 +300,7 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
           <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden flex flex-col">
             <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
               <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">🚦 Live Traffic · Google Maps</span>
-              <button onClick={() => fetchTraffic(origin, destination)} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">↻</button>
+              <button onClick={() => trafficOrigin && trafficDest && fetchTraffic(trafficOrigin, trafficDest)} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">↻</button>
             </div>
 
             <div className="p-5 flex-1 space-y-5">
@@ -330,7 +376,7 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                     <a
-                      href={`https://www.google.com/maps/dir/${encodeURIComponent(origin + ', India')}/${encodeURIComponent(destination + ', India')}`}
+                      href={`https://www.google.com/maps/dir/${encodeURIComponent(trafficOrigin + ', India')}/${encodeURIComponent(trafficDest + ', India')}`}
                       target="_blank" rel="noopener noreferrer"
                       className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 transition-all"
                     >
@@ -342,12 +388,25 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
                   <div className="flex items-center gap-2 bg-black/20 border border-white/5 rounded-2xl px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-500 mb-0.5">From</p>
-                      <p className="text-white font-semibold text-sm truncate">{origin || "—"}</p>
+                      <select 
+                        value={trafficOrigin} 
+                        onChange={(e) => setTrafficOrigin(e.target.value)}
+                        className="w-full bg-transparent text-white font-semibold text-sm truncate outline-none cursor-pointer"
+                      >
+                        {locations.map(l => <option key={l} value={l} className="bg-gray-900">{l}</option>)}
+                      </select>
                     </div>
                     <div className="text-gray-600 flex-shrink-0 px-2">→</div>
                     <div className="flex-1 min-w-0 text-right">
                       <p className="text-xs text-gray-500 mb-0.5">To</p>
-                      <p className="text-white font-semibold text-sm truncate">{destination || "—"}</p>
+                      <select 
+                        value={trafficDest} 
+                        onChange={(e) => setTrafficDest(e.target.value)}
+                        className="w-full bg-transparent text-white font-semibold text-sm truncate outline-none cursor-pointer text-right appearance-none"
+                        style={{ textAlignLast: 'right' }}
+                      >
+                        {locations.map(l => <option key={l} value={l} className="bg-gray-900">{l}</option>)}
+                      </select>
                     </div>
                   </div>
 
@@ -358,10 +417,18 @@ export default function LiveAssistant({ params }: { params: { id: string } }) {
                   </p>
                 </>
               ) : (
-                <div className="text-center py-10 text-gray-500">
+                <div className="text-center py-10 text-gray-500 flex flex-col h-full justify-center">
                   <p className="text-3xl mb-2">🚦</p>
                   <p className="text-sm">Traffic data unavailable</p>
-                  {origin && destination && <p className="text-xs mt-1 text-gray-600">Fetching {origin} → {destination}…</p>}
+                  <div className="flex items-center gap-2 mt-4 px-4">
+                    <select value={trafficOrigin} onChange={(e) => setTrafficOrigin(e.target.value)} className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-xs text-white outline-none">
+                      {locations.map(l => <option key={l} value={l} className="bg-gray-900">{l}</option>)}
+                    </select>
+                    <span>→</span>
+                    <select value={trafficDest} onChange={(e) => setTrafficDest(e.target.value)} className="flex-1 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-xs text-white outline-none" style={{ textAlignLast: 'right' }}>
+                      {locations.map(l => <option key={l} value={l} className="bg-gray-900">{l}</option>)}
+                    </select>
+                  </div>
                 </div>
               )}
             </div>

@@ -37,7 +37,7 @@ export default function Dashboard() {
       try {
         const token = localStorage.getItem("token");
         if (!token) { router.push("/auth/login"); return; }
-        const res = await axios.get("http://127.0.0.1:8000/api/trips/history", {
+        const res = await axios.get(`http://127.0.0.1:8000/api/trips/history?t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTrips(res.data);

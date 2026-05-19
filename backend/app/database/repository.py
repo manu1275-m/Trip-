@@ -39,7 +39,7 @@ class TravelRepository:
             sql = f"""
             CREATE TABLE IF NOT EXISTS {collection} (
                 id VARCHAR(255) PRIMARY KEY,
-                data JSON NOT NULL
+                data TEXT NOT NULL
             );
             """
             await fluxbase_client.execute_sql(sql)
@@ -89,13 +89,21 @@ class TravelRepository:
         payload = {**document, "id": doc_id}
         payload_json = json.dumps(payload, default=custom_serializer)
         
-        # MySQL upsert using ON DUPLICATE KEY UPDATE
-        sql = f"""
-        INSERT INTO {collection} (id, data) 
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE data = ?
-        """
-        await fluxbase_client.execute_sql(sql, [doc_id, payload_json, payload_json])
+        # REPLACE INTO is an atomic upsert: deletes the old row if it exists and inserts the new one
+        sql = f"REPLACE INTO {collection} (id, data) VALUES (?, ?)"
+        try:
+            await fluxbase_client.execute_sql(sql, [doc_id, payload_json])
+            logger.info(f"Upserted {collection}/{doc_id} successfully")
+        except Exception as e:
+            logger.error(f"REPLACE INTO failed for {collection}/{doc_id}: {e}. Trying INSERT...")
+            # Fallback: delete then insert
+            try:
+                await fluxbase_client.execute_sql(f"DELETE FROM {collection} WHERE id = ?", [doc_id])
+            except Exception:
+                pass
+            await fluxbase_client.execute_sql(
+                f"INSERT INTO {collection} (id, data) VALUES (?, ?)", [doc_id, payload_json]
+            )
         return payload.copy()
 
     async def _insert(self, collection: str, document: dict[str, Any], prefix: str) -> dict[str, Any]:

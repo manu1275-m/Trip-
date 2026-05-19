@@ -22,7 +22,7 @@ export default function TransportSelection({ params }: { params: { id: string } 
         router.push("/auth/login");
         return;
       }
-      const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}`, {
+      const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}?t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTrip(res.data);
@@ -37,17 +37,22 @@ export default function TransportSelection({ params }: { params: { id: string } 
     fetchTrip();
   }, [fetchTrip]);
 
+  // Re-fetch whenever user returns to this tab (e.g. after booking)
+  useEffect(() => {
+    const onFocus = () => fetchTrip();
+    const onVisible = () => { if (document.visibilityState === "visible") fetchTrip(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchTrip]);
+
   const getTransportBooking = (type: string) => {
     if (!trip?.bookings) return null;
-    const route = `${trip?.request?.current_location} to ${trip?.request?.destination}`.toLowerCase().trim();
-    
-    // Search all bookings for a match on both type and item_name/key
-    return Object.values(trip.bookings).find((b: any) => {
-      const isTypeMatch = b.type === type;
-      const itemNameMatch = b.item_name?.toLowerCase().trim() === route || 
-                           (typeof b === 'object' && Object.keys(trip.bookings).find(k => k.toLowerCase().trim() === route && trip.bookings[k] === b));
-      return isTypeMatch && itemNameMatch;
-    });
+    // Find any booking value where the type matches (Flight or Train)
+    return Object.values(trip.bookings).find((b: any) => b?.type === type) || null;
   };
 
   const flightBooking = getTransportBooking("Flight");
@@ -192,8 +197,9 @@ export default function TransportSelection({ params }: { params: { id: string } 
             onSuccess={async () => {
               await fetchTrip();
             }}
-            onClose={() => {
+            onClose={async () => {
               setCheckoutTransport(null);
+              await fetchTrip(); // always re-fetch on close to show latest booking status
             }}
           />
         )}

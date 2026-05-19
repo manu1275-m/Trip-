@@ -35,9 +35,6 @@ export default function CreateTrip() {
   const [travelDate, setTravelDate] = useState("");
   const [days, setDays] = useState("3");
   const [selectedInterests, setSelectedInterests] = useState<string[]>(["Culture", "Food"]);
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [emergencyRelation, setEmergencyRelation] = useState("");
 
   // Agent progress state
   const [currentStep, setCurrentStep] = useState(-1);
@@ -93,11 +90,6 @@ export default function CreateTrip() {
             interests: selectedInterests.map((i) => i.toLowerCase()),
             accessibility_needs: [],
           },
-          emergency_contact: emergencyName ? {
-            name: emergencyName,
-            phone: emergencyPhone,
-            relation: emergencyRelation,
-          } : null,
         },
         { headers: { Authorization: `Bearer ${token}` }, timeout: 600_000 }
       );
@@ -281,31 +273,6 @@ export default function CreateTrip() {
                     <input type="range" min="1" max="14" value={days} onChange={(e) => setDays(e.target.value)}
                       className="w-full accent-amber-500 cursor-pointer mt-3" />
                     <div className="flex justify-between text-xs text-gray-600 mt-1"><span>1 day</span><span>14 days</span></div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Emergency Contact */}
-              <div className="rounded-2xl border border-red-500/15 bg-red-500/5 p-6 space-y-4">
-                <h3 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2"><span>🚨</span> Emergency Contact</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">Name</label>
-                    <input type="text" value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 transition-all placeholder-gray-600"
-                      placeholder="Full Name" required />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">Phone</label>
-                    <input type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 transition-all placeholder-gray-600"
-                      placeholder="Phone Number" required />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">Relation</label>
-                    <input type="text" value={emergencyRelation} onChange={(e) => setEmergencyRelation(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 transition-all placeholder-gray-600"
-                      placeholder="e.g., Parent" required />
                   </div>
                 </div>
               </div>

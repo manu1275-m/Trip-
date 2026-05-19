@@ -40,8 +40,11 @@ class Settings(BaseSettings):
     fluxbase_project_id: str = ""
     fluxbase_base_url: str = "https://fluxbase.vercel.app"
 
+    google_maps_api_key: str = ""
+    pexels_api_key: str = ""
+
     model_config = SettingsConfigDict(
-        env_file=("../.env", ".env"),
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import Link from "next/link";
 import axios from "axios";
@@ -245,32 +245,60 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
   const [activeDay, setActiveDay] = useState(0);
   const dayRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  useEffect(() => {
-    const fetchTrip = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) { router.push("/auth/login"); return; }
-      try {
-        const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTrip(res.data);
-      } catch (err: any) {
-        setError(err.response?.data?.detail || "Failed to fetch trip details.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTrip();
+  const fetchTrip = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) { router.push("/auth/login"); return; }
+    try {
+      const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}?t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTrip(res.data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to fetch trip details.");
+    } finally {
+      setLoading(false);
+    }
   }, [params.id, router]);
+
+  useEffect(() => {
+    fetchTrip();
+  }, [fetchTrip]);
+
+  // Re-fetch whenever the user navigates back to this tab (e.g. after booking transport/hotels)
+  useEffect(() => {
+    const onFocus = () => fetchTrip();
+    const onVisible = () => { if (document.visibilityState === "visible") fetchTrip(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchTrip]);
 
   const getBooking = (name: string) => {
     if (!trip?.bookings) return null;
     const t = name.trim().toLowerCase();
-    const key = Object.keys(trip.bookings).find((k) => {
+    // 1. Match by key name
+    const keyMatch = Object.keys(trip.bookings).find((k) => {
       const kk = k.trim().toLowerCase();
       return kk === t || kk.includes(t) || t.includes(kk);
     });
-    return key ? trip.bookings[key] : null;
+    if (keyMatch) return trip.bookings[keyMatch];
+    // 2. Match by item_name field inside the booking value
+    const valueMatch = Object.values(trip.bookings).find((b: any) => {
+      const bName = (b?.item_name || "").trim().toLowerCase();
+      return bName === t || bName.includes(t) || t.includes(bName);
+    });
+    return valueMatch || null;
+  };
+
+  // Check if ANY transport (flight/train) is booked for this trip
+  const getTransportBooking = () => {
+    if (!trip?.bookings) return null;
+    return Object.values(trip.bookings).find((b: any) =>
+      b?.type === 'Flight' || b?.type === 'Train' || b?.type === 'Transport'
+    ) || null;
   };
 
   if (loading) {
@@ -337,11 +365,8 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
   );
   const isMultiStay = !isSingleStay && uniqueStays.length > 1;
 
-  const transportName = `${trip?.request?.current_location || ""} to ${trip?.request?.destination || ""}`;
-  const transportBooked = getBooking(transportName);
-  const hasTransportBooking = Object.values(trip?.bookings || {}).some((b: any) => 
-    b.type === 'Flight' || b.type === 'Train' || b.type === 'Transport'
-  );
+  const transportBooked = getTransportBooking();
+  const hasTransportBooking = !!transportBooked;
 
   const isTripCompleted = (t: any) => {
     if (!t?.request?.travel_date || !t?.request?.number_of_days) return false;
@@ -361,6 +386,52 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
     setActiveDay(idx);
     dayRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  // ── Per-day real date helpers ─────────────────────────────────────────────
+  const getTripStartDate = (): Date | null => {
+    if (!trip?.request?.travel_date) return null;
+    const d = new Date(trip.request.travel_date);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const getDayDate = (dayIndex: number): Date | null => {
+    const start = getTripStartDate();
+    if (!start) return null;
+    const d = new Date(start);
+    d.setDate(start.getDate() + dayIndex);
+    return d;
+  };
+
+  const isDayCompleted = (dayIndex: number): boolean => {
+    const dayDate = getDayDate(dayIndex);
+    if (!dayDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dayDate.setHours(0, 0, 0, 0);
+    return today > dayDate;
+  };
+
+  const isDayToday = (dayIndex: number): boolean => {
+    const dayDate = getDayDate(dayIndex);
+    if (!dayDate) return false;
+    const today = new Date();
+    return (
+      today.getDate() === dayDate.getDate() &&
+      today.getMonth() === dayDate.getMonth() &&
+      today.getFullYear() === dayDate.getFullYear()
+    );
+  };
+
+  const formatDayDate = (dayIndex: number): string => {
+    const d = getDayDate(dayIndex);
+    if (!d) return "";
+    return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+  };
+
+  // Return booking check
+  const returnBooked = Object.values(trip?.bookings || {}).find((b: any) =>
+    b.type === 'Flight-Return' || b.type === 'Train-Return'
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-[#09090b]">
@@ -493,26 +564,6 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                 🏨 Book Hotels
               </Link>
 
-              {/* Safety & Emergency */}
-              <div className="glass-panel p-4 border-red-500/10 bg-red-500/5">
-                <p className="text-xs font-bold uppercase tracking-widest text-red-400 mb-2">Safety & Emergency</p>
-                {trip?.request?.emergency_contact ? (
-                  <div className="space-y-2">
-                    <p className="text-white font-bold text-sm">{trip.request.emergency_contact.name}</p>
-                    <p className="text-gray-400 text-[10px]">{trip.request.emergency_contact.relation} · {trip.request.emergency_contact.phone}</p>
-                    <a href={`tel:${trip.request.emergency_contact.phone}`} className="block w-full text-center bg-red-600/20 hover:bg-red-600/30 text-red-400 py-2 rounded-xl text-xs font-bold border border-red-500/20 transition-all">
-                      Call Emergency Contact
-                    </a>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-[10px]">No emergency contact set.</p>
-                )}
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  <a href="tel:100" className="bg-white/5 py-2 rounded-xl text-center text-[10px] font-bold text-gray-400 hover:text-white transition-all">Police (100)</a>
-                  <a href="tel:102" className="bg-white/5 py-2 rounded-xl text-center text-[10px] font-bold text-gray-400 hover:text-white transition-all">Amb (102)</a>
-                </div>
-              </div>
-
               {/* AI explanation */}
               {trip?.ai_explanation && (
                 <div className="glass-panel p-4">
@@ -538,6 +589,9 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
               const previousStay = idx > 0 ? parsedPlan![days[idx - 1]]?.stay : null;
               const showStay = dayData.stay && !isSingleStay && dayData.stay !== previousStay;
               const extras = Object.keys(dayData).filter((k) => k !== "places" && k !== "stay");
+              const dayCompleted = isDayCompleted(idx);
+              const dayIsToday = isDayToday(idx);
+              const dayDateStr = formatDayDate(idx);
 
               return (
                 <div
@@ -547,14 +601,28 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                 >
                   {/* Day pill */}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/20 px-4 py-2 rounded-full">
-                      <span className="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center text-black font-extrabold text-sm">{dayNum}</span>
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${
+                      dayCompleted
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : dayIsToday
+                        ? 'bg-amber-500/20 border-amber-500/30'
+                        : 'bg-gradient-to-r from-amber-500/20 to-orange-500/10 border-amber-500/20'
+                    }`}>
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm ${
+                        dayCompleted ? 'bg-green-500 text-white' : dayIsToday ? 'bg-amber-500 text-black' : 'bg-amber-500 text-black'
+                      }`}>
+                        {dayCompleted ? '✓' : dayNum}
+                      </span>
                       <span className="text-white font-bold">Day {dayNum}</span>
+                      {dayDateStr && <span className="text-xs text-gray-400 hidden sm:block">· {dayDateStr}</span>}
+                      {dayCompleted && <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Completed</span>}
+                      {dayIsToday && <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full animate-pulse">Today</span>}
                     </div>
                     <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
                   </div>
 
-                  <div className="space-y-4">
+                  {/* Completed overlay for past days */}
+                  <div className={`space-y-4 relative ${ dayCompleted ? 'opacity-70' : '' }`}>
                     {/* Places */}
                     {dayData.places && dayData.places.length > 0 && (
                       <div>
@@ -667,6 +735,47 @@ export default function AITripPlan({ params }: { params: { id: string } }) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* ── Return Journey ─────────────────────────────────────────────── */}
+            {!isCompleted && (
+              <div className="mt-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-full">
+                    <span className="text-purple-400 text-lg">🔄</span>
+                    <span className="text-white font-bold">Return Journey</span>
+                  </div>
+                  <div className="flex-1 h-px bg-gradient-to-r from-purple-500/20 to-transparent" />
+                </div>
+                <div className={`relative rounded-2xl border overflow-hidden transition-all ${returnBooked ? 'border-purple-500/40 bg-purple-500/5' : 'border-white/10 bg-white/[0.02] hover:border-purple-500/30'}`}>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-600 rounded-l-2xl" />
+                  <div className="pl-6 pr-6 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                    <div className="flex items-center gap-5">
+                      <div className="w-14 h-14 rounded-2xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-2xl flex-shrink-0">🏠</div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          Return Home
+                          {returnBooked && <span className="text-xs font-bold bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/30">BOOKED</span>}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-0.5">{trip?.request?.destination} → {trip?.request?.current_location}</p>
+                        {trip?.request?.travel_date && trip?.request?.number_of_days && (
+                          <p className="text-xs text-purple-400 mt-1">
+                            Return: {new Date(new Date(trip.request.travel_date).getTime() + parseInt(trip.request.number_of_days) * 86400000).toLocaleDateString("en-IN", {weekday:"short", day:"numeric", month:"long", year:"numeric"})}
+                          </p>
+                        )}
+                        {returnBooked && <p className="text-xs text-gray-500 font-mono mt-1">PNR: {(returnBooked as any).pnr}</p>}
+                      </div>
+                    </div>
+                    {returnBooked ? (
+                      <div className="flex items-center gap-2 bg-green-500/15 border border-green-500/30 text-green-400 px-5 py-3 rounded-xl font-bold text-sm flex-shrink-0">✅ Confirmed</div>
+                    ) : (
+                      <Link href={`/trips/${params.id}/return-transport`} className="bg-purple-600 hover:bg-purple-500 active:scale-[0.97] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-600/20 transition-all text-sm flex-shrink-0">
+                        Book Return →
+                      </Link>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

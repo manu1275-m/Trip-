@@ -196,18 +196,33 @@ async def confirm_mock_booking(payload: MockBookingRequest, email: str = Depends
                 "confirmed_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
             
-            # Save travelers and booking email to the trip request so they are persistent for other bookings in this trip
+            # Save travelers and booking email to the trip request so they are persistent
             if "request" not in trip:
                 trip["request"] = {}
             
             if not trip["request"].get("travelers") or len(trip["request"]["travelers"]) == 0:
                 trip["request"]["travelers"] = [t.model_dump() for t in payload.travelers]
             
-            # Always save/update the primary booking email for the trip
+            # Always persist the booking email
             trip["request"]["booking_email"] = payload.email
-                
+
+            print(f"DEBUG: Bookings before save: {list(trip['bookings'].keys())}")
+
+            # Explicitly save to app_bookings table for separate indexing
+            await repo.save_booking(email, {
+                "trip_id": payload.trip_id,
+                "pnr": pnr,
+                "type": payload.booking_type,
+                "item_name": payload.item_name,
+                "booking_key": booking_key,
+                "total_price": payload.total_price,
+                "travelers": [t.model_dump() for t in payload.travelers],
+                "status": "confirmed",
+                "booking_email": payload.email
+            })
+
             await repo.save_trip(email, trip)
-            print(f"DEBUG: Successfully saved booking, travelers, and email for {payload.item_name}")
+            print(f"DEBUG: Saved booking '{booking_key}' (pnr={pnr}) for trip {payload.trip_id}")
         else:
             print(f"DEBUG: Trip {payload.trip_id} NOT found for user {email}")
     except Exception as e:

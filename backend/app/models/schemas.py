@@ -93,7 +93,6 @@ class TripInitRequest(BaseModel):
     travelers: list[TravelerInput] = Field(default_factory=list)
     saved_traveler_ids: list[str] = Field(default_factory=list)
     preferences: TripPreferences = Field(default_factory=TripPreferences)
-    emergency_contact: EmergencyContactInput | None = None
 
 
 class Place(BaseModel):

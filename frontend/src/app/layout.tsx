@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import EmergencyButton from "@/components/EmergencyButton";
 
 export const metadata: Metadata = {
   title: "Yatra AI — Your AI Travel Companion for India",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/30">
         <Script src="https://checkout.razorpay.com/v1/checkout.js" />
         {children}
+        <EmergencyButton />
       </body>
     </html>
   );

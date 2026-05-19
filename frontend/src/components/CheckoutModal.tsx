@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { formatINR } from '@/lib/pricing';
 
@@ -47,6 +47,7 @@ export default function CheckoutModal({
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false); // Guard against double-clicks / double calls
 
   // Payment method state
   const [payMethod, setPayMethod] = useState<PayMethod>('upi');
@@ -69,6 +70,9 @@ export default function CheckoutModal({
   const totalPrice = pricePerUnit * travelers.length;
 
   const handleFinalize = async () => {
+    // Hard guard: prevent any double submission
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -81,11 +85,14 @@ export default function CheckoutModal({
         total_price: totalPrice,
         razorpay_payment_id: 'pay_demo_' + Math.random().toString(36).substr(2, 9),
       }, { headers: { Authorization: `Bearer ${token}` } });
-      // Set flag in parent FIRST, then show done screen
-      onSuccess();
+      // Await parent refresh FIRST so trip state is up to date, then show done
+      // Small delay lets the DB commit fully before we read it back
+      await new Promise(r => setTimeout(r, 400));
+      await onSuccess();
       setStep('done');
     } catch {
       alert('Failed to save booking. Please try again.');
+      isSubmittingRef.current = false; // Reset on failure so user can retry
     } finally {
       setLoading(false);
     }

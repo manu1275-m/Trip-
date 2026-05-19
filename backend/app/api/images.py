@@ -4,14 +4,14 @@ import os
 import logging
 from dotenv import load_dotenv
 
+from app.core.config import settings
+
 router = APIRouter(prefix="/images", tags=["images"])
 logger = logging.getLogger("app.images")
 
 @router.get("/search")
 async def search_image(query: str = Query(...)):
-    # Ensure environment variables are loaded
-    load_dotenv()
-    api_key = os.getenv("PEXELS_API_KEY", "").strip()
+    api_key = settings.pexels_api_key.strip()
     
     # Generic high-quality travel fallback
     fallback_url = "https://images.pexels.com/photos/1007427/pexels-photo-1007427.jpeg?auto=compress&cs=tinysrgb&w=800"

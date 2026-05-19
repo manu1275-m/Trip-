@@ -11,10 +11,11 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Query
+from app.core.config import settings
 
 router = APIRouter()
 
-GMAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+GMAPS_KEY = settings.google_maps_api_key
 
 
 def _congestion_label(ratio: float) -> str:
@@ -105,12 +106,21 @@ def _mock_traffic(origin: str, destination: str, error: str | None = None) -> di
     import hashlib
 
     seed = int(hashlib.md5(f"{origin}{destination}".encode()).hexdigest()[:8], 16)
-    delay = (seed % 45)  # 0–44 minutes
-    km = 300 + (seed % 1200)  # 300–1500 km
-    normal_h = round(km / 60, 1)
+    
+    # Heuristic: if it looks like a specific place (has spaces or long name)
+    is_local = " " in origin or " " in destination or len(origin) > 12 or len(destination) > 12
+    
+    if is_local:
+        km = 3 + (seed % 12)  # 3–15 km for local spots
+        delay = (seed % 15)   # 0–14 min delay
+    else:
+        km = 150 + (seed % 750) # 150–900 km for city-to-city
+        delay = (seed % 45)
+    
+    normal_h = round(km / 40 if is_local else km / 70, 1) # slower avg speed for local
 
     levels = ["low", "moderate", "high"]
-    congestion = levels[delay % 3]
+    congestion = levels[delay % 3] if delay > 5 else "low"
 
     return {
         "source": "mock",

@@ -22,7 +22,7 @@ export default function HotelsSelection({ params }: { params: { id: string } }) 
         router.push("/auth/login");
         return;
       }
-      const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}`, {
+      const res = await axios.get(`http://127.0.0.1:8000/api/trips/${params.id}?t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTrip(res.data);
@@ -37,21 +37,34 @@ export default function HotelsSelection({ params }: { params: { id: string } }) 
     fetchTrip();
   }, [fetchTrip]);
 
+  // Re-fetch whenever user returns to this tab
+  useEffect(() => {
+    const onFocus = () => fetchTrip();
+    const onVisible = () => { if (document.visibilityState === "visible") fetchTrip(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchTrip]);
+
   const getHotelBooking = (stayName: string) => {
     if (!trip?.bookings) return null;
-    const normalizedTarget = stayName.trim().toLowerCase();
-    
-    // 1. Exact match
-    const exactMatch = Object.keys(trip.bookings).find(k => k.trim().toLowerCase() === normalizedTarget);
-    if (exactMatch) return trip.bookings[exactMatch];
-    
-    // 2. Substring match (robust for variations)
-    const substringMatch = Object.keys(trip.bookings).find(k => {
+    const target = stayName.trim().toLowerCase();
+
+    // 1. Try matching by key name
+    const keyMatch = Object.keys(trip.bookings).find(k => {
       const key = k.trim().toLowerCase();
-      return key.includes(normalizedTarget) || normalizedTarget.includes(key);
+      return key === target || key.includes(target) || target.includes(key);
     });
-    
-    return substringMatch ? trip.bookings[substringMatch] : null;
+    if (keyMatch) return trip.bookings[keyMatch];
+
+    // 2. Try matching by item_name inside booking value
+    return Object.values(trip.bookings).find((b: any) => {
+      const bName = (b?.item_name || "").trim().toLowerCase();
+      return bName === target || bName.includes(target) || target.includes(bName);
+    }) || null;
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin text-4xl text-primary">⚙️</div></div>;
@@ -113,8 +126,9 @@ export default function HotelsSelection({ params }: { params: { id: string } }) 
                   onSuccess={async () => {
                     await fetchTrip();
                   }}
-                  onClose={() => {
+                  onClose={async () => {
                     setCheckoutStay(null);
+                    await fetchTrip(); // re-fetch to show latest booking status
                   }}
                 />
               )}
